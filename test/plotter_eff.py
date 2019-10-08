@@ -6,7 +6,7 @@ r.gROOT.SetBatch(True)
 
 #path = "~sscruz/www/DT_TDR/2019_12_09_plots_eff_withHBaged_noquality/"
 #path = "~vrbouza/www/Miscelánea/2019_09_23_plots_eff_shiftsoff_paSilvia"
-path = "~vrbouza/www/Miscelánea/2019_09_24_plots_eff_shiftsoff"
+path = "~vrbouza/www/Miscelánea/2019_10_04_plots_eff_shiftsoff"
 
 plotscaffold = "hEff_{st}_{al}_{ty}"
 savescaffold = "hEff_{pu}{qu}{id}"
@@ -26,13 +26,17 @@ def makeresplot(hlist, aged, algo, qual = "", pued = False, ind = ""):
 
     print "And finally the histogram that is going to be saved will have this name:", "hEff_{al}_{ag}_{pu}".format(al = algo, ag = (not aged) * "no" + "age", pu = ((not pued) * "no") + "pu") + "_{q}".format(q = qual) * (qual != "") + "_{id}".format(id = ind)* (ind != "")
 
-    resplot = r.TH1F("hEff_{al}_{ag}_{pu}".format(al = algo, ag = (not aged) * "no" + "age", pu = ((not pued) * "no") + "pu") + "_{q}".format(q = qual) * (qual != "") + "_{id}".format(id = ind)* (ind != ""), "", 20, -0.5, 19.5)
+    resplot = r.TH1D("hEff_{al}_{ag}_{pu}".format(al = algo, ag = (not aged) * "no" + "age", pu = ((not pued) * "no") + "pu") + "_{q}".format(q = qual) * (qual != "") + "_{id}".format(id = ind)* (ind != ""), "", 20, -0.5, 19.5)
     
     ibin = 1
     for ich in range(4):
         for iwh in range(1, 6):
             #print "st", ich, "wh", iwh, "valmatched:", hmatched[ich].GetBinContent(iwh), "valtotal:", htotal[ich].GetBinContent(iwh)
-            resplot.SetBinContent(ibin, hmatched[ich].GetBinContent(iwh) / htotal[ich].GetBinContent(iwh))
+            effval = hmatched[ich].GetBinContent(iwh) / htotal[ich].GetBinContent(iwh)
+
+            if effval > 1: print "WARNING: eff. for chamber", ich, "and wheel", iwh, "is", effval, ". Fixing to 1."
+
+            resplot.SetBinContent(ibin, effval * (effval < 1) + 1 * (effval >= 1))
             eff = r.TEfficiency('kk','',1,-0.5,0.5)
             eff.SetTotalEvents(1, int(htotal[ich].GetBinContent(iwh)))
             eff.SetPassedEvents(1,int(hmatched[ich].GetBinContent(iwh)))
@@ -46,7 +50,8 @@ def makeresplot(hlist, aged, algo, qual = "", pued = False, ind = ""):
     return
 
 
-lowlimityaxis  = 0.2
+#lowlimityaxis  = 0.2
+lowlimityaxis  = 0.8
 highlimityaxis = 1
 markersize     = 1
 yaxistitle     = "Efficiency (adim.)"
@@ -58,29 +63,39 @@ legxhigh       = 0.9
 legyhigh       = 0.5
 
 markertypedir  = {}
-markertypedir["AM_age"] = 20
-markertypedir["AM_noage"] = 20
-#markertypedir["AM+RPC_age"] = 29
+markertypedir["AM_age"]       = 24
+markertypedir["AM_noage"]     = 20
+#markertypedir["AM+RPC_age"]   = 29
 #markertypedir["AM+RPC_noage"] = 29
-markertypedir["AM+RPC_age"] = 34
+markertypedir["AM+RPC_age"]   = 28
 markertypedir["AM+RPC_noage"] = 34
-markertypedir["HB_noage"] = 22
-markertypedir["HB_age"] = 22
+markertypedir["HB_noage"]     = 22
+markertypedir["HB_age"]       = 22
 
 markercolordir  = {}
-markercolordir["AM_age"] = r.kRed
-markercolordir["AM+RPC_age"] = r.kRed
-markercolordir["AM+RPC_noage"] = r.kBlue
-markercolordir["HB_noage"] = r.kBlue
-markercolordir["AM_noage"] = r.kBlue
-markercolordir["HB_age"] = r.kRed
+markercolordir["AM_age"]       = 2
+markercolordir["AM+RPC_age"]   = 2
+markercolordir["AM+RPC_noage"] = 4
+markercolordir["HB_noage"]     = 4
+markercolordir["AM_noage"]     = 4
+markercolordir["HB_age"]       = 2
+
+namedir  = {}
+namedir["AM_age"]       = "AM w/ ageing"
+namedir["AM+RPC_age"]   = "AM w/ RPC w/ ageing"
+namedir["AM+RPC_noage"] = "AM w/ RPC"
+namedir["HB_noage"]     = "HB"
+namedir["AM_noage"]     = "AM"
+namedir["HB_age"]       = "HB w/ ageing"
 
 def combineresplots(hlist, qual = "", pued = False, ind = ""):
     print "Combining list of plots that has", pued, "pile-up,", qual, "quality and", ind, "index."
     if len(hlist) == 0: raise RuntimeError("Empty list of plots")
+
     c   = r.TCanvas("c", "c", 800, 800)
     c.SetLeftMargin(0.11)
     c.SetGrid()
+
     leg = r.TLegend(legxlow, legylow, legxhigh, legyhigh)
     hlist[0].SetStats(False)
     #hlist[0].SetTitle("L1 DT Phase 2 algorithm efficiency comparison")
@@ -99,10 +114,11 @@ def combineresplots(hlist, qual = "", pued = False, ind = ""):
         hlist[iplot].SetMarkerSize(markersize)    # .replace("_nopu","").replace("_pu","").replace("hEff_","")
         hlist[iplot].SetMarkerStyle(markertypedir[( hlist[iplot].GetName().split("_")[1] + "_" + hlist[iplot].GetName().split("_")[2] )])
         hlist[iplot].SetMarkerColor(markercolordir[hlist[iplot].GetName().split("_")[1] + "_" + hlist[iplot].GetName().split("_")[2]])
-        leg.AddEntry(hlist[iplot], hlist[iplot].GetName().split("_")[1] + " " + hlist[iplot].GetName().split("_")[2], "P")
+        #leg.AddEntry(hlist[iplot], namedir[hlist[iplot].GetName().split("_")[1] + "_" + hlist[iplot].GetName().split("_")[2]], "P")
+        leg.AddEntry(hlist[iplot], namedir[hlist[iplot].GetName().split("_")[1] + "_" + hlist[iplot].GetName().split("_")[2]])
         hlist[iplot].Draw("P,hist" + (iplot != 0) * "same")
 
-    leg.Draw()
+    leg.Draw("HISTP")
 
     textlist = []
     linelist = []
@@ -120,17 +136,32 @@ def combineresplots(hlist, qual = "", pued = False, ind = ""):
     #cmslat.DrawLatexNDC(0.11, 0.91, "#scale[1.5]{CMS}");
     #cmslat.Draw("same");
 
-    CMS_lumi.lumi_13TeV = ""
-    CMS_lumi.extraText  = 'Simulation'
-    CMS_lumi.cmsTextSize= 0.5
-    CMS_lumi.lumi_sqrtS = ''
-    CMS_lumi.CMS_lumi(r.gPad, 0, 0, 0.07)
+    #CMS_lumi.lumi_13TeV = ""
+    #CMS_lumi.extraText  = 'Phase-2 Simulation'
+    #CMS_lumi.cmsTextSize= 0.5
+    #CMS_lumi.lumi_sqrtS = ''
+    #CMS_lumi.CMS_lumi(r.gPad, 0, 0, 0.07)
 
+    firsttex = r.TLatex()
+    firsttex.SetTextSize(0.03)
+    firsttex.DrawLatexNDC(0.11,0.91,"#scale[1.5]{CMS} Phase-2 Simulation")
+    firsttex.Draw("same");
+
+    secondtext = r.TLatex()
+    toDisplay  = r.TString("14 TeV, 3000 fb^{-1}, 200 PU")
+    secondtext.SetTextSize(0.035)
+    secondtext.SetTextAlign(31)
+    secondtext.DrawLatexNDC(0.90, 0.91, toDisplay.Data())
+    secondtext.Draw("same")
 
     #c.SetLogy()
-    c.SaveAs(path + "/" + savescaffold.format(pu = (not pued) * "no" + "pu", qu = ("_" + qual)*(qual != ""), id =("_" + ind)*(ind != "")) + ".png")
-    c.SaveAs(path + "/" + savescaffold.format(pu = (not pued) * "no" + "pu", qu = ("_" + qual)*(qual != ""), id =("_" + ind)*(ind != "")) + ".pdf")
-    c.SaveAs(path + "/" + savescaffold.format(pu = (not pued) * "no" + "pu", qu = ("_" + qual)*(qual != ""), id =("_" + ind)*(ind != "")) + ".root")
+
+    outputscaff = path + "/" + savescaffold.format(pu = (not pued) * "no" + "pu", qu = ("_" + qual)*(qual != ""), id =("_" + ind)*(ind != ""))
+
+    c.SaveAs(outputscaff + ".png")
+    c.SaveAs(outputscaff + ".pdf")
+    c.SaveAs(outputscaff + ".root")
+    c.SaveAs(outputscaff + ".C")
     c.Close(); del c
     return
 
@@ -171,5 +202,7 @@ producetheTDRplot("")
 producetheTDRplot("", True)
 producetheTDRplot("nothreehits")
 producetheTDRplot("nothreehits", True)
+producetheTDRplot("qualityOR")
+producetheTDRplot("qualityOR", True)
 
 #producetheSilviaplots()
