@@ -25,6 +25,7 @@ options.register('inputFolder',
                  VarParsing.VarParsing.varType.string,
                  "EOS folder with input files")
 
+
 options.register('secondaryInputFolder',
                  '', #default value
                  VarParsing.VarParsing.multiplicity.singleton,
@@ -55,6 +56,12 @@ options.register('ntupleName',
                  VarParsing.VarParsing.varType.string,
                  "Folder and name ame for output ntuple")
 
+options.register('useRPC',
+                 0,
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.int,
+                 "Use RPC info")
+
 options.parseArguments()
 
 process = cms.Process("DTNTUPLES",eras.Run2_2018)
@@ -73,10 +80,12 @@ process.GlobalTag.globaltag = cms.string(options.globalTag)
 if options.ageingInput != "" :
     process.GlobalTag.toGet = cms.VPSet()
     process.GlobalTag.toGet.append(cms.PSet(record  = cms.string("MuonSystemAgingRcd"),
-                                            connect = cms.string(options.ageingInput),
-                                            tag     = cms.string("MuonSystemAging")
+                                        connect = cms.string(options.ageingInput),
+                                        tag     = cms.string("MuonSystemAging_3000fbm1")
                                         )
                                )
+    
+    #process.GlobalTag = GlobalTag(process.GlobalTag, '106X_upgrade2023_realistic_v3', 'MuonSystemAging_3000fbm1,MuonSystemAgingRcd,sqlite_file:./MuonSystemAging.db')
 
 process.source = cms.Source("PoolSource",
                             
@@ -85,8 +94,11 @@ process.source = cms.Source("PoolSource",
 
 )
 
-files = subprocess.check_output(["ls", options.inputFolder])
-process.source.fileNames = ["file://" + options.inputFolder + "/" + f for f in files.split()]
+#if options.inputFolder != '': 
+#    files = subprocess.check_output(["ls", options.inputFolder])
+#    process.source.fileNames = ["file://" + options.inputFolder + "/" + f for f in files.split()]
+process.source.fileNames = ['/store/mc/PhaseIITDRSpring19DR/Mu_FlatPt2to100-pythia8-gun/GEN-SIM-DIGI-RAW/PU200_106X_upgrade2023_realistic_v3-v2/70000/F42F882F-B3A8-4346-870D-3E62C930D076.root']
+
 
 if options.secondaryInputFolder != "" :
     files = subprocess.check_output(["ls", options.secondaryInputFolder])
@@ -107,6 +119,21 @@ process.load("Phase2L1Trigger.CalibratedDigis.CalibratedDigis_cfi")
 process.load("L1Trigger.DTPhase2Trigger.dtTriggerPhase2PrimitiveDigis_cfi")
 
 process.CalibratedDigis.dtDigiTag = "simMuonDTDigis"
+process.CalibratedDigis.scenario = 0
+process.dtTriggerPhase2PrimitiveDigis.scenario = 0
+
+#Produce RPC clusters from RPCDigi
+process.load("RecoLocalMuon.RPCRecHit.rpcRecHits_cfi")
+process.rpcRecHits.rpcDigiLabel = cms.InputTag('simMuonRPCDigis')
+# Use RPC
+process.load('Configuration.Geometry.GeometryExtended2023D38Reco_cff')
+process.load('Configuration.Geometry.GeometryExtended2023D38_cff')
+if options.useRPC:
+    process.dtTriggerPhase2PrimitiveDigis.useRPC = True
+process.dtTriggerPhase2PrimitiveDigis.max_quality_to_overwrite_t0 = 10 # strict inequality
+process.dtTriggerPhase2PrimitiveDigis.scenario = 0 # 0 for mc, 1 for data, 2 for slice test
+
+
 process.dtTriggerPhase2AmPrimitiveDigis = process.dtTriggerPhase2PrimitiveDigis.clone()
 
 process.load('L1Trigger.DTHoughTPG.DTTPG_cfi')
@@ -122,6 +149,7 @@ process.load('DTDPGAnalysis.DTNtuples.dtNtupleProducer_phase2_cfi')
 
 process.p = cms.Path(process.dt1DRecHits
                      + process.dt4DSegments
+                     + process.rpcRecHits
                      + process.CalibratedDigis
                      + process.dtTriggerPhase2AmPrimitiveDigis
                      + process.dtTriggerPhase2HbPrimitiveDigis

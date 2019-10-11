@@ -88,6 +88,7 @@ def customiseForAgeing(process, pathName, segmentAgeing, triggerAgeing) :
     if triggerAgeing :
         print "[customiseForAgeing]: switching emulatros input to agedDtDigis"
         process.CalibratedDigis.dtDigiTag = "agedDtDigis"
+        process.dtTriggerPhase2HbPrimitiveDigis.dtDigiLabel = "agedDtDigis"
         
 
     return process
