@@ -23,8 +23,10 @@ DTNtupleTPGSimAnalyzer::DTNtupleTPGSimAnalyzer(const TString & inFileName,
 
   m_minMuPt = 20;
 
-  m_maxMuSegDPhi = 0.2;
-  m_maxMuSegDEta = 0.3;
+//  m_maxMuSegDPhi = 0.2; // Old
+//  m_maxMuSegDEta = 0.3; // Old
+   m_maxMuSegDPhi = 0.1;  // New
+   m_maxMuSegDEta = 0.15; // New
 
   m_minSegHits = 4;
 
@@ -119,10 +121,14 @@ void DTNtupleTPGSimAnalyzer::fill()
       Double_t muSegDPhi = std::abs(acos(cos(gen_phi->at(iGenPart) - seg_posGlb_phi->at(iSeg))));
       Double_t muSegDEta = std::abs(gen_eta->at(iGenPart) - seg_posGlb_eta->at(iSeg));
       
-      if (muSegDPhi < m_maxMuSegDPhi &&
-          muSegDEta < m_maxMuSegDEta &&
-          segNHits >= m_minSegHits &&
-          segNHits >= bestSegNHits.at(segSt - 1))
+
+      if (muSegDPhi <  m_maxMuSegDPhi &&
+          muSegDEta <  m_maxMuSegDEta &&
+          segNHits  >= m_minSegHits   &&
+          segNHits  >= bestSegNHits.at(segSt - 1)
+          && (TMath::Abs(seg_phi_t0->at(iSeg)) < 15) // CUT ON TIME
+          && ((seg_z_nHits->at(iSeg) >= 4 && (segSt < 4)) || (segSt == 4)) // SL2 requirement
+         )
       {
         bestSegNHits[segSt - 1] = segNHits;
         bestSegIndex[segSt - 1] = iSeg;
@@ -162,6 +168,7 @@ void DTNtupleTPGSimAnalyzer::fill()
     for (const auto & iSeg : bestSegIndex)
     {
       if (iSeg == 999) continue;
+
 
       Int_t segWh  = seg_wheel->at(iSeg);
       Int_t segSec = seg_sector->at(iSeg);
